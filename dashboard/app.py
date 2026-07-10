@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import time
+import os  # 👈 NAYA IMPORT
 
 # 1. Page Configuration
 st.set_page_config(page_title="FinGuard AI | Ops Center", page_icon="🛡️", layout="wide", initial_sidebar_state="expanded")
@@ -23,7 +24,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-API_URL = "http://127.0.0.1:8000/process_transaction"
+# 🌐 UPDATED API URL LOGIC
+# Agar cloud par API_URL set hai toh wo use karo, warna default local (127.0.0.1) use karo.
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/process_transaction")
 
 # --- Sidebar (System Status) ---
 with st.sidebar:
@@ -35,7 +38,7 @@ with st.sidebar:
     st.success("🟢 LangGraph Agents: **ONLINE**")
     st.success("🟢 PostgreSQL DB: **CONNECTED**")
     st.markdown("---")
-    st.markdown("<p class='sidebar-text'>Monitoring Tabular, Network, and Anomaly metrics in real-time.</p>", unsafe_allow_html=True)
+    st.markdown(f"<p class='sidebar-text'>API Endpoint: {API_URL.split('/')[2]}</p>", unsafe_allow_html=True) # Dikhayega ke konsi API connected hai
 
 # --- UI Header ---
 st.title("🛡️ FinGuard AI: Operations Center")
@@ -61,14 +64,12 @@ def analyze_transaction(payload):
             if res.get("status") == "APPROVED":
                 st.markdown(f"<p class='status-approved'>✅ {res['status']} | ID: {res['transaction_id']}</p>", unsafe_allow_html=True)
                 
-                # 4 Columns for the new GNN metric
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric("XGBoost (Tabular)", f"{res['risk_scores'].get('xgboost', 0)}%", delta="Low Risk", delta_color="inverse")
                 m2.metric("GNN (Network Risk)", f"{res['risk_scores'].get('gnn_network_risk', 0)}%", delta="Safe Ring", delta_color="inverse")
                 m3.metric("Isolation Forest", "Clean")
                 m4.metric("Agent Action", "Bypassed")
                 
-                # Progress bar takes the max risk between XGBoost and GNN
                 max_risk = max(res['risk_scores'].get('xgboost', 0), res['risk_scores'].get('gnn_network_risk', 0))
                 st.progress(max_risk / 100)
                 st.info("💾 Transaction processed instantly via ML & Graph layers and saved to Database.")
@@ -94,7 +95,7 @@ def analyze_transaction(payload):
                     st.markdown(f"<div class='agent-report'>{res['agent_case_report']}</div>", unsafe_allow_html=True)
 
         except requests.exceptions.ConnectionError:
-            st.error("❌ Connection Error: Cannot reach the FastAPI server. Is it running on port 8000?")
+            st.error(f"❌ Connection Error: Cannot reach the FastAPI server at {API_URL}. Is your backend deployed and running?")
         except Exception as e:
             st.error(f"❌ Unexpected Error: {e}")
 
